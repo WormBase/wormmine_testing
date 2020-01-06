@@ -27,4 +27,4 @@ def index():
 
     return render_template('index.html')
 
-app.run(debug=True)
+app.run(debug=True, host='0.0.0.0')
