@@ -63,7 +63,7 @@ def query_06():
     query.add_constraint("primaryIdentifier", "CONTAINS", "B0207.4", code="B")
     query.add_constraint("symbol", "CONTAINS", "B0207.4", code="A")
     query.set_logic("A or B")
-    return assert_result('06', query.rows(), 1)
+    return assert_result('06', query.rows(), 2)
 
 
 def query_07():
