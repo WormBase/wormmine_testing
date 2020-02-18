@@ -69,7 +69,7 @@ def query_06():
 def query_07():
 
     query = service.new_query("Allele")
-    query.add_view("primaryIdentifier", "genes.primaryIdentifier", "genes.secondaryIdentifier")
+    query.add_view("primaryIdentifier", "gene.primaryIdentifier", "gene.secondaryIdentifier")
     query.add_constraint("primaryIdentifier", "=", "WBVar01498288", code="A")
     return assert_result('07', query.rows(), 75)
 
