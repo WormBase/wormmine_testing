@@ -16,11 +16,11 @@ def assert_result(query_number, number_of_rows, expected_result):
 def assert_greater(query_number, number_of_rows, minimum):
 
     try:
-        assertGreaterEqual(number_of_rows, minimum)
+        assert len(number_of_rows) >= minimum
         return 'Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows))
     except Exception as e:
         to_check.append(query_number)
-        return 'Query #' + query_number + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows))
+        return 'Query #' + query_number + ' FAILED. Expected ' + str(minimum) + ' returned ' + str(len(number_of_rows))
 
 
 def query_01():
@@ -123,7 +123,7 @@ def query_12():
     query.add_view("primaryIdentifier", "secondaryIdentifier", "symbol")
     query.add_constraint("organism.name", "=", "Caenorhabditis elegans", code="A")
     query.add_constraint("CDSs", "IS NOT NULL", code="B")
-    return assert_greater('12', query.rows(), 20122)
+    return assert_greater('12', query.rows(), 20000)
 
 
 def query_13():
@@ -146,7 +146,7 @@ def query_14():
     query.add_view("primaryIdentifier", "secondaryIdentifier", "symbol", "length")
     query.add_constraint("organism.name", "=", "Caenorhabditis elegans", code="A")
     query.add_constraint("length", "IS NOT NULL", code="B")
-    return assert_result('14', query.rows(), 47281)
+    return assert_greater('14', query.rows(), 46500)
 
 
 def query_15():
@@ -199,7 +199,7 @@ def query_20():
     query.add_view("primaryIdentifier", "symbol")
     query.add_constraint("CDSs", "IS NOT NULL", code="A")
     query.add_constraint("organism.name", "=", "Caenorhabditis elegans", code="B")
-    return  assert_result('20', query.rows(), 44749)
+    return assert_greater('20', query.rows(), 43000)
 
 
 def query_21():

@@ -14,7 +14,7 @@ def testd():
             item = getattr(testing_development, x)
             print(item)
             if callable(item):
-                if not item.__name__ in ['assert_result', 'Service']:
+                if not item.__name__ in ['assert_result', 'Service', 'assert_greater']:
                     time.sleep(1)
                     yield '%s<br/>\n' % item()
 
