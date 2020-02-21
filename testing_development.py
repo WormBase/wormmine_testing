@@ -12,6 +12,17 @@ def assert_result(query_number, number_of_rows, expected_result):
         to_check.append(query_number)
         return 'Query #' + query_number + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows))
 
+
+def assert_greater(query_number, number_of_rows, minimum):
+
+    try:
+        assertGreaterEqual(number_of_rows, minimum)
+        return 'Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows))
+    except Exception as e:
+        to_check.append(query_number)
+        return 'Query #' + query_number + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows))
+
+
 def query_01():
 
     query = service.new_query("Gene")
@@ -112,7 +123,7 @@ def query_12():
     query.add_view("primaryIdentifier", "secondaryIdentifier", "symbol")
     query.add_constraint("organism.name", "=", "Caenorhabditis elegans", code="A")
     query.add_constraint("CDSs", "IS NOT NULL", code="B")
-    return assert_result('12', query.rows(), 20122)
+    return assert_greater('12', query.rows(), 20122)
 
 
 def query_13():
@@ -135,7 +146,7 @@ def query_14():
     query.add_view("primaryIdentifier", "secondaryIdentifier", "symbol", "length")
     query.add_constraint("organism.name", "=", "Caenorhabditis elegans", code="A")
     query.add_constraint("length", "IS NOT NULL", code="B")
-    return assert_result('14', query.rows(), 46911)
+    return assert_result('14', query.rows(), 47281)
 
 
 def query_15():
@@ -356,9 +367,9 @@ def query_39():
 def query_40():
 
     query = service.new_query("Gene")
-    query.add_view("primaryIdentifier", "secondaryIdentifier", "symbol","alleles.primaryIdentifier", "alleles.symbol")
+    query.add_view("primaryIdentifier", "secondaryIdentifier", "symbol","allele.primaryIdentifier", "allele.symbol")
     query.add_constraint("symbol", "=", "cdk-4", code="A")
-    query.add_constraint("alleles.primaryIdentifier", "=", "WBVar02146689", code="B")
+    query.add_constraint("allele.primaryIdentifier", "=", "WBVar02146689", code="B")
     return assert_result('40', query.rows(), 1)
 
 
