@@ -1,24 +1,33 @@
 import settings
+import logging
+import coloredlogs
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+coloredlogs.install(level='DEBUG')
+
+logging.getLogger('intermine').setLevel(logging.INFO)
+logging.getLogger('JSONIterator').setLevel(logging.INFO)
+logging.getLogger('Model').setLevel(logging.INFO)
 
 def assert_result(query_number, number_of_rows, expected_result):
 
     try:
         assert len(number_of_rows) == expected_result
-        print('Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows)))
+        logger.info('Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows)))
     except Exception as e:
-        settings.to_check.append(query_number)
-        print('Query #' + query_number + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows)))
+        settings.to_check.append('query_' + str(query_number))
+        logger.warning('Query #' + query_number + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows)))
 
 
 def assert_greater(query_number, number_of_rows, minimum):
 
     try:
         assert len(number_of_rows) >= minimum
-        return 'Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows))
+        logger.info('Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows)))
     except Exception as e:
-        settings.to_check.append(query_number)
-        return 'Query #' + query_number + ' FAILED. Expected ' + str(minimum) + ' returned ' + str(len(number_of_rows))
+        settings.to_check.append('query_' + str(query_number))
+        logger.warning('Query #' + query_number + ' FAILED. Expected ' + str(minimum) + ' returned ' + str(len(number_of_rows)))
 
 
 def query_01(service):
