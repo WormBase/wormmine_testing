@@ -15,16 +15,20 @@ logging.getLogger("intermine").setLevel(logging.INFO)
 def development():
 
     service = Service("http://im-dev1.wormbase.org/tools/wormmine/service")
-    settings.init()
-    for x in dir(testing_development):
-        item = getattr(testing_development, x)
-        if callable(item):
-            if not item.__name__ in ['assert_result', 'Service', 'assert_greater']:
-                item(service)
+    # settings.init()
+    # for x in dir(testing_development):
+    #     item = getattr(testing_development, x)
+    #     if callable(item):
+    #         if not item.__name__ in ['assert_result', 'Service', 'assert_greater']:
+    #             item(service)
 
-    logger.info(str(len(settings.to_check)) + ' query(ies) failed')
-    for query in settings.to_check:
-        logger.warning(query)
+    test = [('query_01', 'Gene'), ('query_02', 'Gene')]
+    # logger.info(str(len(settings.to_check)) + ' query(ies) failed')
+    # for query in settings.to_check:
+    for query in test:
+        logger.warning(query[0] + ' ' + query[1])
+        item = getattr(testing_development, query[0])
+        item(service, True)
 
 if __name__ == '__main__':
 
