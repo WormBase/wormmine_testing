@@ -321,34 +321,34 @@ def query_35():
     return assert_result('35', query.rows(), 0)
 
 
-# def query_36():
-#
-#     query = service.new_query("Organism")
-#     query.add_view("name", "taxonId")
-#     print('Query #36')
-#     result = {}
-#     for row in query.rows():
-#        result[row["name"]] = row["taxonId"]
-#
-#     for i in result:
-#        print('\t' + i + '\t' + str(result[i]))
+def query_36():
 
-# def query_37():
-#
-#     query = service.new_query("Chromosome")
-#     query.add_view("primaryIdentifier", "organism.name")
-#     query.add_constraint("organism.name", "=", "Caenorhabditis elegans", code="A")
-#     print('Query #37')
-#
-#     result = {}
-#     for row in query.rows():
-#        result[row["primaryIdentifier"]] = row["organism.name"]
-#
-#     for i in result:
-#        try:
-#            print('\t' + i + '\t' + str(result[i]))
-#        except:
-#            print('\t' + i)
+    query = service.new_query("Organism")
+    query.add_view("name", "taxonId")
+    print('Query #36')
+    result = {}
+    for row in query.rows():
+       result[row["name"]] = row["taxonId"]
+
+    for i in result:
+       print('\t' + i + '\t' + str(result[i]))
+
+def query_37():
+
+    query = service.new_query("Chromosome")
+    query.add_view("primaryIdentifier", "organism.name")
+    query.add_constraint("organism.name", "=", "Caenorhabditis elegans", code="A")
+    print('Query #37')
+
+    result = {}
+    for row in query.rows():
+       result[row["primaryIdentifier"]] = row["organism.name"]
+
+    for i in result:
+       try:
+           print('\t' + i + '\t' + str(result[i]))
+       except:
+           print('\t' + i)
 
 def query_38():
 

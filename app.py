@@ -20,7 +20,7 @@ def testd():
             if callable(item):
                 if not item.__name__ in ['assert_result', 'Service', 'assert_greater', 'save_txt_file']:
                     time.sleep(1)
-                    yield '%s<br/>\n' % item(service)
+                    yield '%s<br/>\n' % item(service, True)
 
     env = Environment(loader=FileSystemLoader('templates'))
     tmpl = env.get_template('result.html')
