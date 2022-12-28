@@ -356,6 +356,11 @@ def query_23(service, save_file=False):
     query.add_view('primaryAccession', 'primaryIdentifier', 'secondaryIdentifier', 'symbol')
     query.add_constraint('organism.name', '=', 'Caenorhabditis elegans', code='A')
     query.add_constraint('CDSs', 'IS NULL', code='B')
+
+    if save_file:
+        save_txt_file('protein', query.rows())
+        logger.info('File saved')
+
     return assert_result('23', query.rows(), 0, 'Protein')
 
 

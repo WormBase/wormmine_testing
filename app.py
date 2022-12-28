@@ -11,7 +11,7 @@ app = flask.Flask(__name__)
 @app.route('/testd')
 def testd():
 
-    service = Service('http://im-dev1.wormbase.org/tools/wormmine/service')
+    service = Service('http://54.196.152.251./tools/wormmine/service')
 
     def inner():
         for x in dir(testing_queries):
