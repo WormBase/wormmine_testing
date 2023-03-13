@@ -17,26 +17,26 @@ def assert_result(query_number, number_of_rows, expected_result, model):
 
     try:
         assert len(number_of_rows) == expected_result
-        logger.info('Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows)))
-        return 'Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows))
+        logger.info('Query #' + query_number + ' ' + model + ' PASSED. Returned ' + str(len(number_of_rows)))
+        return 'Query #' + query_number + ' ' + model + ' PASSED. Returned ' + str(len(number_of_rows))
     except Exception as e:
         logger.info(str(e))
         # settings.to_check.append(('query_' + str(query_number), model))
-        logger.warning('Query #' + query_number + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows)))
-        return 'Query #' + query_number + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows))
+        logger.warning('Query #' + query_number + ' ' + model + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows)))
+        return 'Query #' + query_number + ' ' + model + ' FAILED. Expected ' + str(expected_result) + ' returned ' + str(len(number_of_rows))
 
 
 def assert_greater(query_number, number_of_rows, minimum, model):
 
     try:
         assert len(number_of_rows) >= minimum
-        logger.info('Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows)))
+        logger.info('Query #' + query_number + ' ' + model + '  PASSED. Returned ' + str(len(number_of_rows)))
         return 'Query #' + query_number + ' PASSED. Returned ' + str(len(number_of_rows))
     except Exception as e:
         logger.info(str(e))
         # settings.to_check.append(('query_' + str(query_number), model))
         logger.warning('Query #' + query_number + ' FAILED. Expected ' + str(minimum) + ' returned ' + str(len(number_of_rows)))
-        return 'Query #' + query_number + ' FAILED. Expected ' + str(minimum) + ' returned ' + str(len(number_of_rows))
+        return 'Query #' + query_number + ' ' + model + ' FAILED. Expected ' + str(minimum) + ' returned ' + str(len(number_of_rows))
 
 
 def save_txt_file(my_class, rows):
