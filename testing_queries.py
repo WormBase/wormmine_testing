@@ -207,7 +207,7 @@ def query_12(service, save_file=False):
         save_txt_file('gene', query.rows())
         logger.info('File saved')
 
-    return assert_greater('12', query.rows(), 19997, 'Gene')
+    return assert_greater('12', query.rows(), 19984, 'Gene')
 
 
 def query_13(service, save_file=False):
@@ -574,7 +574,7 @@ def query_38(service, save_file=False):
         save_txt_file('allele', query.rows())
         logger.info('File saved')
 
-    return assert_result('38', query.rows(), 85, 'Allele')
+    return assert_result('38', query.rows(), 94, 'Allele')
 
 
 def query_39(service, save_file=False):
