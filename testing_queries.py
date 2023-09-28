@@ -388,7 +388,7 @@ def query_25(service, save_file=False):
         save_txt_file('cds', query.rows())
         logger.info('File saved')
 
-    return assert_result('25', query.rows(), 0, 'Protein')
+    return assert_result('25', query.rows(), 0, 'CDS')
 
 
 def query_26(service, save_file=False):
