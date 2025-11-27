@@ -415,11 +415,12 @@ def build_query(query_def):
         else:
             constraint_xml += f'  <constraint path="{path}" op="{op}" value="{value}" code="{code}"/>\n'
 
+    # Handle constraint logic (e.g., "A or B")
     logic = query_def.get("logic", "")
-    logic_xml = f'  <constraint-logic>{logic}</constraint-logic>\n' if logic else ""
+    logic_attr = f' constraintLogic="{logic}"' if logic else ""
 
-    return f'''<query model="genomic" view="{views}" sortOrder="{query_def["views"][0]} ASC">
-{constraint_xml}{logic_xml}</query>'''
+    return f'''<query model="genomic" view="{views}" sortOrder="{query_def["views"][0]} ASC"{logic_attr}>
+{constraint_xml}</query>'''
 
 
 def check_result(query_def, count, rows):
@@ -476,13 +477,16 @@ def run_query(client, query_def, output_dir, save_failures=True):
         logger.warning(f"[{qid:02d}] {message}")
 
         # Save failures to file if we have unexpected results for "exact 0" checks
+        # Use to_remove_<model>.txt format for post_processing compatibility
         if save_failures and query_def["check_type"] == "exact" and query_def["expected"] == 0 and count > 0:
-            output_file = output_dir / f"{qid:02d}_{query_def['name']}.txt"
-            with open(output_file, 'w') as f:
+            model = query_def["model"].lower()
+            output_file = output_dir / f"to_remove_{model}.txt"
+            # Append mode to combine multiple queries for same model
+            with open(output_file, 'a') as f:
                 for row in rows:
                     identifier = row[0] if isinstance(row, list) else str(row)
                     f.write(f"{identifier}\n")
-            logger.warning(f"[{qid:02d}] Saved {count} items to {output_file.name}")
+            logger.warning(f"[{qid:02d}] Appended {count} items to {output_file.name}")
 
     return passed, count
 
@@ -501,6 +505,11 @@ def run_all_checks(service_url, output_dir, query_ids=None):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Output directory: {output_dir}")
+
+    # Clear existing to_remove_*.txt files
+    for f in output_dir.glob("to_remove_*.txt"):
+        f.unlink()
+        logger.debug(f"Removed old file: {f.name}")
 
     queries_to_run = QUERIES
     if query_ids:
