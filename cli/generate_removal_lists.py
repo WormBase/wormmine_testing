@@ -481,12 +481,26 @@ def run_query(client, query_def, output_dir, save_failures=True):
         if save_failures and query_def["check_type"] == "exact" and query_def["expected"] == 0 and count > 0:
             model = query_def["model"].lower()
             output_file = output_dir / f"to_remove_{model}.txt"
-            # Append mode to combine multiple queries for same model
-            with open(output_file, 'a') as f:
-                for row in rows:
-                    identifier = row[0] if isinstance(row, list) else str(row)
-                    f.write(f"{identifier}\n")
-            logger.warning(f"[{qid:02d}] Appended {count} items to {output_file.name}")
+
+            # Read existing items if file exists
+            existing = set()
+            if output_file.exists():
+                existing = set(output_file.read_text().strip().split('\n'))
+
+            # Add new unique items
+            new_items = set()
+            for row in rows:
+                identifier = row[0] if isinstance(row, list) else str(row)
+                if identifier and identifier not in existing:
+                    new_items.add(identifier)
+
+            # Append only unique new items
+            if new_items:
+                with open(output_file, 'a') as f:
+                    for identifier in sorted(new_items):
+                        f.write(f"{identifier}\n")
+
+            logger.warning(f"[{qid:02d}] Added {len(new_items)} unique items to {output_file.name} ({count - len(new_items)} duplicates skipped)")
 
     return passed, count
 
