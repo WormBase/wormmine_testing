@@ -44,6 +44,10 @@ MODELS = {
 }
 
 
+DEFAULT_HOST = 'intermine-postgres.cmnnhlso7wdi.us-east-1.rds.amazonaws.com'
+DEFAULT_CREDS = 'postgres:zpS-4BNKUAOiulFtIUOZE2kvDlWi9mKmuak8Zs9LJz0'
+
+
 def get_credentials(creds_file=None):
     """Get database credentials"""
     if creds_file:
@@ -55,8 +59,8 @@ def get_credentials(creds_file=None):
         if p.exists():
             return p.read_text().strip()
 
-    logger.error("No credentials file found. Create pgcreds with user:password")
-    sys.exit(1)
+    # Use default credentials
+    return DEFAULT_CREDS
 
 
 def backup_database(database, host, creds, backup_dir='./backups'):
@@ -106,6 +110,133 @@ def get_connection(database, host='localhost', creds_file=None):
 
     engine = create_engine(db_string, isolation_level='AUTOCOMMIT')
     return engine.connect(), creds
+
+
+def clean_anatomy_cdata(connection, identifiers, dry_run=False):
+    """Clean CDATA from anatomyterm definition field (UPDATE, not DELETE)"""
+    if not identifiers:
+        return 0
+
+    total = len(identifiers)
+    updated = 0
+
+    if dry_run:
+        logger.info(f"[DRY-RUN] Would clean CDATA from {total} anatomyterm records")
+        return total
+
+    for identifier in identifiers:
+        try:
+            # Get current definition
+            result = connection.execute(text(
+                f"SELECT definition FROM anatomyterm WHERE primaryidentifier = '{identifier}'"
+            ))
+            row = result.fetchone()
+            if row and row[0]:
+                definition = row[0]
+                new_definition = definition.replace("<![CDATA[", "").replace("]]>", "").replace("'", "`")
+                connection.execute(text(
+                    f"UPDATE anatomyterm SET definition = '{new_definition}' WHERE primaryidentifier = '{identifier}'"
+                ))
+                updated += 1
+                logger.debug(f"Cleaned CDATA from {identifier}")
+        except Exception as e:
+            logger.error(f"Error cleaning {identifier}: {e}")
+
+    return updated
+
+
+def clean_rnai_cdata(connection, dry_run=False):
+    """Clean CDATA from RNAi remark, secondaryidentifier, phenotyperemark fields"""
+    updated = 0
+
+    if dry_run:
+        logger.info("[DRY-RUN] Would clean CDATA from RNAi records")
+        return 0
+
+    # Clean remark field
+    logger.info("Cleaning CDATA from RNAi remark field...")
+    result = connection.execute(text("SELECT primaryidentifier, remark FROM rnai WHERE remark LIKE '%CDATA%'"))
+    for row in result:
+        rnai_id, remark = row[0], row[1]
+        if remark:
+            new_remark = remark.replace("<![CDATA[", "").replace("]]>", "").replace("'", "`")
+            try:
+                connection.execute(text(
+                    f"UPDATE rnai SET remark = '{new_remark}' WHERE primaryidentifier = '{rnai_id}'"
+                ))
+                updated += 1
+            except Exception as e:
+                logger.error(f"Error updating remark for {rnai_id}: {e}")
+
+    # Clean secondaryidentifier field
+    logger.info("Cleaning CDATA from RNAi secondaryidentifier field...")
+    result = connection.execute(text("SELECT primaryidentifier, secondaryidentifier FROM rnai WHERE secondaryidentifier LIKE '%CDATA%'"))
+    for row in result:
+        rnai_id, sec_id = row[0], row[1]
+        if sec_id:
+            new_sec_id = sec_id.replace("<![CDATA[", "").replace("]]>", "").replace("'", "`")
+            try:
+                connection.execute(text(
+                    f"UPDATE rnai SET secondaryidentifier = '{new_sec_id}' WHERE primaryidentifier = '{rnai_id}'"
+                ))
+                updated += 1
+            except Exception as e:
+                logger.error(f"Error updating secondaryidentifier for {rnai_id}: {e}")
+
+    # Clean phenotyperemark field
+    logger.info("Cleaning CDATA from RNAi phenotyperemark field...")
+    result = connection.execute(text("SELECT primaryidentifier, phenotyperemark FROM rnai WHERE phenotyperemark LIKE '%CDATA%'"))
+    for row in result:
+        rnai_id, phenotype = row[0], row[1]
+        if phenotype:
+            new_phenotype = phenotype.replace("<![CDATA[", "").replace("]]>", "").replace("'", "`")
+            try:
+                connection.execute(text(
+                    f"UPDATE rnai SET phenotyperemark = '{new_phenotype}' WHERE primaryidentifier = '{rnai_id}'"
+                ))
+                updated += 1
+            except Exception as e:
+                logger.error(f"Error updating phenotyperemark for {rnai_id}: {e}")
+
+    return updated
+
+
+def add_hgnc_symbols(connection, hgnc_file, dry_run=False):
+    """Add human gene symbols from HGNC file to secondaryidentifier"""
+    if not Path(hgnc_file).exists():
+        logger.warning(f"HGNC file not found: {hgnc_file}")
+        return 0
+
+    symbols = {}
+    for line in Path(hgnc_file).read_text().splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            symbols[parts[0]] = parts[1]
+
+    if not symbols:
+        logger.warning("No HGNC symbols loaded")
+        return 0
+
+    logger.info(f"Loaded {len(symbols)} HGNC symbols")
+
+    if dry_run:
+        logger.info("[DRY-RUN] Would update HGNC gene symbols")
+        return 0
+
+    updated = 0
+    result = connection.execute(text("SELECT primaryidentifier FROM gene WHERE primaryidentifier LIKE '%HGNC%'"))
+    for row in result:
+        gene_id = row[0]
+        if gene_id in symbols:
+            try:
+                connection.execute(text(
+                    f"UPDATE gene SET secondaryidentifier = '{symbols[gene_id]}' WHERE primaryidentifier = '{gene_id}'"
+                ))
+                updated += 1
+            except Exception as e:
+                logger.error(f"Error updating HGNC symbol for {gene_id}: {e}")
+
+    return updated
 
 
 def remove_records(connection, table, identifiers, dry_run=False, batch_size=100):
@@ -163,6 +294,13 @@ def process_removal_list(connection, model, input_dir, dry_run=False):
         logger.debug(f"Empty removal list for {model}")
         return 0
 
+    # Anatomy terms: clean CDATA, don't delete
+    if model == 'anatomyterm':
+        logger.info(f"Processing {model}: {len(identifiers)} records to clean CDATA")
+        updated = clean_anatomy_cdata(connection, identifiers, dry_run)
+        logger.info(f"Cleaned CDATA from {updated} records in {table}")
+        return updated
+
     logger.info(f"Processing {model}: {len(identifiers)} records to remove")
     deleted = remove_records(connection, table, identifiers, dry_run)
     logger.info(f"Deleted {deleted} records from {table}")
@@ -170,7 +308,7 @@ def process_removal_list(connection, model, input_dir, dry_run=False):
     return deleted
 
 
-def run_post_processing(database, input_dir, host='localhost', creds_file=None, dry_run=False, models=None, backup=False, backup_dir='./backups'):
+def run_post_processing(database, input_dir, host='localhost', creds_file=None, dry_run=False, models=None, backup=False, backup_dir='./backups', clean_rnai=False, hgnc_file=None):
     """Run post-processing for all models"""
     connection, creds = get_connection(database, host, creds_file)
     input_dir = Path(input_dir)
@@ -179,37 +317,49 @@ def run_post_processing(database, input_dir, host='localhost', creds_file=None, 
     if backup and not dry_run:
         backup_database(database, host, creds, backup_dir)
 
-    if not input_dir.exists():
-        logger.error(f"Input directory not found: {input_dir}")
-        sys.exit(1)
-
-    # Find all removal list files
-    removal_files = list(input_dir.glob("to_remove_*.txt"))
-    if not removal_files:
-        logger.info("No removal list files found")
-        return
-
-    logger.info(f"Found {len(removal_files)} removal list files")
-
     if dry_run:
         logger.warning("DRY-RUN MODE - no changes will be made")
 
-    total_deleted = 0
+    total_processed = 0
 
-    # Process in order: gene last (has most dependencies)
-    process_order = ['anatomyterm', 'exon', 'mrna', 'cds', 'transcript', 'protein', 'allele', 'gene', 'organism']
+    # Clean RNAi CDATA if requested
+    if clean_rnai:
+        logger.info("Cleaning CDATA from RNAi records...")
+        updated = clean_rnai_cdata(connection, dry_run)
+        logger.info(f"Cleaned {updated} RNAi fields")
+        total_processed += updated
 
-    for model in process_order:
-        if models and model not in models:
-            continue
-        try:
-            deleted = process_removal_list(connection, model, input_dir, dry_run)
-            total_deleted += deleted
-        except Exception as e:
-            logger.error(f"Error processing {model}: {e}")
+    # Add HGNC symbols if file provided
+    if hgnc_file:
+        logger.info("Adding HGNC symbols...")
+        updated = add_hgnc_symbols(connection, hgnc_file, dry_run)
+        logger.info(f"Updated {updated} HGNC gene symbols")
+        total_processed += updated
+
+    # Process removal lists
+    if input_dir.exists():
+        removal_files = list(input_dir.glob("to_remove_*.txt"))
+        if removal_files:
+            logger.info(f"Found {len(removal_files)} removal list files")
+
+            # Process in order: gene last (has most dependencies)
+            process_order = ['anatomyterm', 'exon', 'mrna', 'cds', 'transcript', 'protein', 'allele', 'gene', 'organism']
+
+            for model in process_order:
+                if models and model not in models:
+                    continue
+                try:
+                    processed = process_removal_list(connection, model, input_dir, dry_run)
+                    total_processed += processed
+                except Exception as e:
+                    logger.error(f"Error processing {model}: {e}")
+        else:
+            logger.info("No removal list files found")
+    else:
+        logger.debug(f"Input directory not found: {input_dir}")
 
     logger.info("=" * 60)
-    logger.info(f"Total records deleted: {total_deleted}")
+    logger.info(f"Total records processed: {total_processed}")
 
     connection.close()
 
@@ -234,8 +384,8 @@ def main():
 
     parser.add_argument(
         '--host', '-H',
-        default='localhost',
-        help='Database host (default: localhost)'
+        default=DEFAULT_HOST,
+        help=f'Database host (default: {DEFAULT_HOST})'
     )
 
     parser.add_argument(
@@ -274,6 +424,17 @@ def main():
         help='Enable verbose logging'
     )
 
+    parser.add_argument(
+        '--clean-rnai',
+        action='store_true',
+        help='Clean CDATA from RNAi remark, secondaryidentifier, phenotyperemark fields'
+    )
+
+    parser.add_argument(
+        '--hgnc-file',
+        help='Path to HGNC.txt file for adding human gene symbols'
+    )
+
     args = parser.parse_args()
 
     if args.verbose:
@@ -287,7 +448,9 @@ def main():
         args.dry_run,
         args.model,
         args.backup,
-        args.backup_dir
+        args.backup_dir,
+        args.clean_rnai,
+        args.hgnc_file
     )
 
 
