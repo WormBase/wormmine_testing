@@ -15,6 +15,7 @@ Example:
 """
 
 import sys
+import os
 import argparse
 import logging
 import subprocess
@@ -81,7 +82,7 @@ def backup_database(database, host, creds, backup_dir='./backups'):
 
     try:
         with open(backup_file.with_suffix(''), 'wb') as f:
-            result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, env={**dict(subprocess.os.environ), **env})
+            result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, env={**os.environ, **env})
 
         if result.returncode != 0:
             logger.error(f"Backup failed: {result.stderr.decode()}")
