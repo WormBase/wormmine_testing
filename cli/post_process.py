@@ -11,12 +11,15 @@ Usage:
 Example:
     python post_process.py wormmine_final --input-dir ./removal_lists
     python post_process.py wormmine_final --dry-run
+    python post_process.py wormmine_final --backup  # dumps db before processing
 """
 
 import sys
 import argparse
 import logging
+import subprocess
 from pathlib import Path
+from datetime import datetime
 
 from sqlalchemy import create_engine, text
 
@@ -40,26 +43,68 @@ MODELS = {
 }
 
 
+def get_credentials(creds_file=None):
+    """Get database credentials"""
+    if creds_file:
+        return Path(creds_file).read_text().strip()
+
+    # Try to find pgcreds file
+    for path in ['./pgcreds', '../pgcreds', '~/.pgcreds']:
+        p = Path(path).expanduser()
+        if p.exists():
+            return p.read_text().strip()
+
+    logger.error("No credentials file found. Create pgcreds with user:password")
+    sys.exit(1)
+
+
+def backup_database(database, host, creds, backup_dir='./backups'):
+    """Dump database before processing"""
+    backup_dir = Path(backup_dir)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_file = backup_dir / f"{database}_{timestamp}.sql.gz"
+
+    user, password = creds.split(':')
+
+    logger.info(f"Backing up {database} to {backup_file}...")
+
+    env = {'PGPASSWORD': password}
+    cmd = [
+        'pg_dump',
+        '-h', host,
+        '-U', user,
+        '-d', database,
+        '-Fc',  # custom format (compressed)
+    ]
+
+    try:
+        with open(backup_file.with_suffix(''), 'wb') as f:
+            result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, env={**dict(subprocess.os.environ), **env})
+
+        if result.returncode != 0:
+            logger.error(f"Backup failed: {result.stderr.decode()}")
+            sys.exit(1)
+
+        # Compress if not using custom format
+        logger.info(f"Backup complete: {backup_file.with_suffix('')}")
+        return backup_file.with_suffix('')
+
+    except FileNotFoundError:
+        logger.error("pg_dump not found. Install PostgreSQL client tools.")
+        sys.exit(1)
+
+
 def get_connection(database, host='localhost', creds_file=None):
     """Create database connection"""
-    if creds_file:
-        creds = Path(creds_file).read_text().strip()
-    else:
-        # Try to find pgcreds file
-        for path in ['./pgcreds', '../pgcreds', '~/.pgcreds']:
-            p = Path(path).expanduser()
-            if p.exists():
-                creds = p.read_text().strip()
-                break
-        else:
-            logger.error("No credentials file found. Create pgcreds with user:password")
-            sys.exit(1)
+    creds = get_credentials(creds_file)
 
     db_string = f"postgresql://{creds}@{host}/{database}"
     logger.info(f"Connecting to {host}/{database}")
 
     engine = create_engine(db_string, isolation_level='AUTOCOMMIT')
-    return engine.connect()
+    return engine.connect(), creds
 
 
 def remove_records(connection, table, identifiers, dry_run=False, batch_size=100):
@@ -124,10 +169,14 @@ def process_removal_list(connection, model, input_dir, dry_run=False):
     return deleted
 
 
-def run_post_processing(database, input_dir, host='localhost', creds_file=None, dry_run=False, models=None):
+def run_post_processing(database, input_dir, host='localhost', creds_file=None, dry_run=False, models=None, backup=False, backup_dir='./backups'):
     """Run post-processing for all models"""
-    connection = get_connection(database, host, creds_file)
+    connection, creds = get_connection(database, host, creds_file)
     input_dir = Path(input_dir)
+
+    # Backup before making changes
+    if backup and not dry_run:
+        backup_database(database, host, creds, backup_dir)
 
     if not input_dir.exists():
         logger.error(f"Input directory not found: {input_dir}")
@@ -207,6 +256,18 @@ def main():
     )
 
     parser.add_argument(
+        '--backup', '-b',
+        action='store_true',
+        help='Backup database before processing (pg_dump)'
+    )
+
+    parser.add_argument(
+        '--backup-dir',
+        default='./backups',
+        help='Directory for backups (default: ./backups)'
+    )
+
+    parser.add_argument(
         '--verbose', '-v',
         action='store_true',
         help='Enable verbose logging'
@@ -223,7 +284,9 @@ def main():
         args.host,
         args.creds,
         args.dry_run,
-        args.model
+        args.model,
+        args.backup,
+        args.backup_dir
     )
 
 
